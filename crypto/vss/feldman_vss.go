@@ -14,10 +14,11 @@ import (
 	"crypto/elliptic"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 
-	"github.com/bnb-chain/tss-lib/common"
-	"github.com/bnb-chain/tss-lib/crypto"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	"github.com/bnb-chain/tss-lib/v2/crypto"
 )
 
 type (
@@ -58,8 +59,7 @@ func CheckIndexes(ec elliptic.Curve, indexes []*big.Int) ([]*big.Int, error) {
 
 // Returns a new array of secret shares created by Shamir's Secret Sharing Algorithm,
 // requiring a minimum number of shares to recreate, of length shares, from the input secret
-//
-func Create(ec elliptic.Curve, threshold int, secret *big.Int, indexes []*big.Int) (Vs, Shares, error) {
+func Create(ec elliptic.Curve, threshold int, secret *big.Int, indexes []*big.Int, rand io.Reader) (Vs, Shares, error) {
 	if secret == nil || indexes == nil {
 		return nil, nil, fmt.Errorf("vss secret or indexes == nil: %v %v", secret, indexes)
 	}
@@ -77,8 +77,8 @@ func Create(ec elliptic.Curve, threshold int, secret *big.Int, indexes []*big.In
 		return nil, nil, ErrNumSharesBelowThreshold
 	}
 
-	poly := samplePolynomial(ec, threshold, secret)
-	poly[0] = secret // becomes sigma*G in v
+	poly := samplePolynomial(ec, threshold, secret, rand)
+
 	v := make(Vs, len(poly))
 	for i, ai := range poly {
 		v[i] = crypto.ScalarBaseMult(ec, ai)
@@ -93,7 +93,7 @@ func Create(ec elliptic.Curve, threshold int, secret *big.Int, indexes []*big.In
 }
 
 func (share *Share) Verify(ec elliptic.Curve, threshold int, vs Vs) bool {
-	if share.Threshold != threshold || vs == nil {
+	if share.Threshold != threshold || vs == nil || len(vs) != threshold+1 {
 		return false
 	}
 	var err error
@@ -145,12 +145,12 @@ func (shares Shares) ReConstruct(ec elliptic.Curve) (secret *big.Int, err error)
 	return secret, nil
 }
 
-func samplePolynomial(ec elliptic.Curve, threshold int, secret *big.Int) []*big.Int {
+func samplePolynomial(ec elliptic.Curve, threshold int, secret *big.Int, rand io.Reader) []*big.Int {
 	q := ec.Params().N
 	v := make([]*big.Int, threshold+1)
 	v[0] = secret
 	for i := 1; i <= threshold; i++ {
-		ai := common.GetRandomPositiveInt(q)
+		ai := common.GetRandomPositiveInt(rand, q)
 		v[i] = ai
 	}
 	return v
@@ -158,8 +158,8 @@ func samplePolynomial(ec elliptic.Curve, threshold int, secret *big.Int) []*big.
 
 // Evauluates a polynomial with coefficients such that:
 // evaluatePolynomial([a, b, c, d], x):
-// 		returns a + bx + cx^2 + dx^3
 //
+//	returns a + bx + cx^2 + dx^3
 func evaluatePolynomial(ec elliptic.Curve, threshold int, v []*big.Int, id *big.Int) (result *big.Int) {
 	q := ec.Params().N
 	modQ := common.ModInt(q)

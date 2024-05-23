@@ -9,39 +9,46 @@ package mta
 import (
 	"crypto/elliptic"
 	"errors"
+	"io"
 	"math/big"
 
-	"github.com/bnb-chain/tss-lib/common"
-	"github.com/bnb-chain/tss-lib/crypto"
-	"github.com/bnb-chain/tss-lib/crypto/paillier"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	"github.com/bnb-chain/tss-lib/v2/crypto"
+	"github.com/bnb-chain/tss-lib/v2/crypto/paillier"
 )
 
 func AliceInit(
 	ec elliptic.Curve,
 	pkA *paillier.PublicKey,
 	a, NTildeB, h1B, h2B *big.Int,
+	rand io.Reader,
 ) (cA *big.Int, pf *RangeProofAlice, err error) {
-	cA, rA, err := pkA.EncryptAndReturnRandomness(a)
+	cA, rA, err := pkA.EncryptAndReturnRandomness(rand, a)
 	if err != nil {
 		return nil, nil, err
 	}
-	pf, err = ProveRangeAlice(ec, pkA, cA, NTildeB, h1B, h2B, a, rA)
+	pf, err = ProveRangeAlice(ec, pkA, cA, NTildeB, h1B, h2B, a, rA, rand)
 	return cA, pf, err
 }
 
 func BobMid(
+	Session []byte,
 	ec elliptic.Curve,
 	pkA *paillier.PublicKey,
 	pf *RangeProofAlice,
 	b, cA, NTildeA, h1A, h2A, NTildeB, h1B, h2B *big.Int,
+	rand io.Reader,
 ) (beta, cB, betaPrm *big.Int, piB *ProofBob, err error) {
 	if !pf.Verify(ec, pkA, NTildeB, h1B, h2B, cA) {
 		err = errors.New("RangeProofAlice.Verify() returned false")
 		return
 	}
 	q := ec.Params().N
-	betaPrm = common.GetRandomPositiveInt(pkA.N)
-	cBetaPrm, cRand, err := pkA.EncryptAndReturnRandomness(betaPrm)
+	q5 := new(big.Int).Mul(q, q)  // q^2
+	q5 = new(big.Int).Mul(q5, q5) // q^4
+	q5 = new(big.Int).Mul(q5, q)  // q^5
+	betaPrm = common.GetRandomPositiveInt(rand, q5)
+	cBetaPrm, cRand, err := pkA.EncryptAndReturnRandomness(rand, betaPrm)
 	if err != nil {
 		return
 	}
@@ -54,24 +61,29 @@ func BobMid(
 		return
 	}
 	beta = common.ModInt(q).Sub(zero, betaPrm)
-	piB, err = ProveBob(ec, pkA, NTildeA, h1A, h2A, cA, cB, b, betaPrm, cRand)
+	piB, err = ProveBob(Session, ec, pkA, NTildeA, h1A, h2A, cA, cB, b, betaPrm, cRand, rand)
 	return
 }
 
 func BobMidWC(
+	Session []byte,
 	ec elliptic.Curve,
 	pkA *paillier.PublicKey,
 	pf *RangeProofAlice,
 	b, cA, NTildeA, h1A, h2A, NTildeB, h1B, h2B *big.Int,
 	B *crypto.ECPoint,
+	rand io.Reader,
 ) (beta, cB, betaPrm *big.Int, piB *ProofBobWC, err error) {
 	if !pf.Verify(ec, pkA, NTildeB, h1B, h2B, cA) {
 		err = errors.New("RangeProofAlice.Verify() returned false")
 		return
 	}
 	q := ec.Params().N
-	betaPrm = common.GetRandomPositiveInt(pkA.N)
-	cBetaPrm, cRand, err := pkA.EncryptAndReturnRandomness(betaPrm)
+	q5 := new(big.Int).Mul(q, q)  // q^2
+	q5 = new(big.Int).Mul(q5, q5) // q^4
+	q5 = new(big.Int).Mul(q5, q)  // q^5
+	betaPrm = common.GetRandomPositiveInt(rand, q5)
+	cBetaPrm, cRand, err := pkA.EncryptAndReturnRandomness(rand, betaPrm)
 	if err != nil {
 		return
 	}
@@ -84,18 +96,19 @@ func BobMidWC(
 		return
 	}
 	beta = common.ModInt(q).Sub(zero, betaPrm)
-	piB, err = ProveBobWC(ec, pkA, NTildeA, h1A, h2A, cA, cB, b, betaPrm, cRand, B)
+	piB, err = ProveBobWC(Session, ec, pkA, NTildeA, h1A, h2A, cA, cB, b, betaPrm, cRand, B, rand)
 	return
 }
 
 func AliceEnd(
+	Session []byte,
 	ec elliptic.Curve,
 	pkA *paillier.PublicKey,
 	pf *ProofBob,
 	h1A, h2A, cA, cB, NTildeA *big.Int,
 	sk *paillier.PrivateKey,
 ) (*big.Int, error) {
-	if !pf.Verify(ec, pkA, NTildeA, h1A, h2A, cA, cB) {
+	if !pf.Verify(Session, ec, pkA, NTildeA, h1A, h2A, cA, cB) {
 		return nil, errors.New("ProofBob.Verify() returned false")
 	}
 	alphaPrm, err := sk.Decrypt(cB)
@@ -107,6 +120,7 @@ func AliceEnd(
 }
 
 func AliceEndWC(
+	Session []byte,
 	ec elliptic.Curve,
 	pkA *paillier.PublicKey,
 	pf *ProofBobWC,
@@ -114,7 +128,7 @@ func AliceEndWC(
 	cA, cB, NTildeA, h1A, h2A *big.Int,
 	sk *paillier.PrivateKey,
 ) (*big.Int, error) {
-	if !pf.Verify(ec, pkA, NTildeA, h1A, h2A, cA, cB, B) {
+	if !pf.Verify(Session, ec, pkA, NTildeA, h1A, h2A, cA, cB, B) {
 		return nil, errors.New("ProofBobWC.Verify() returned false")
 	}
 	alphaPrm, err := sk.Decrypt(cB)

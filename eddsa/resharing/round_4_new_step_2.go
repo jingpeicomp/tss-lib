@@ -11,11 +11,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/bnb-chain/tss-lib/common"
-	"github.com/bnb-chain/tss-lib/crypto"
-	"github.com/bnb-chain/tss-lib/crypto/commitments"
-	"github.com/bnb-chain/tss-lib/crypto/vss"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	"github.com/bnb-chain/tss-lib/v2/crypto"
+	"github.com/bnb-chain/tss-lib/v2/crypto/commitments"
+	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func (round *round4) Start() *tss.Error {
@@ -141,16 +141,18 @@ func (round *round4) CanAccept(msg tss.ParsedMessage) bool {
 
 func (round *round4) Update() (bool, *tss.Error) {
 	// accept messages from new -> old&new committees
+	ret := true
 	for j, msg := range round.temp.dgRound4Messages {
 		if round.newOK[j] {
 			continue
 		}
 		if msg == nil || !round.CanAccept(msg) {
-			return false, nil
+			ret = false
+			continue
 		}
 		round.newOK[j] = true
 	}
-	return true, nil
+	return ret, nil
 }
 
 func (round *round4) NextRound() tss.Round {

@@ -9,8 +9,8 @@ package signing
 import (
 	"errors"
 
-	"github.com/bnb-chain/tss-lib/crypto/commitments"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/crypto/commitments"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func (round *round9) Start() *tss.Error {
@@ -51,16 +51,18 @@ func (round *round9) Start() *tss.Error {
 }
 
 func (round *round9) Update() (bool, *tss.Error) {
+	ret := true
 	for j, msg := range round.temp.signRound9Messages {
 		if round.ok[j] {
 			continue
 		}
 		if msg == nil || !round.CanAccept(msg) {
-			return false, nil
+			ret = false
+			continue
 		}
 		round.ok[j] = true
 	}
-	return true, nil
+	return ret, nil
 }
 
 func (round *round9) CanAccept(msg tss.ParsedMessage) bool {

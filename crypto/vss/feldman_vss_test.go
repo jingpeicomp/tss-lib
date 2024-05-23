@@ -7,20 +7,21 @@
 package vss_test
 
 import (
+	"crypto/rand"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/bnb-chain/tss-lib/common"
-	. "github.com/bnb-chain/tss-lib/crypto/vss"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	. "github.com/bnb-chain/tss-lib/v2/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func TestCheckIndexesDup(t *testing.T) {
 	indexes := make([]*big.Int, 0)
 	for i := 0; i < 1000; i++ {
-		indexes = append(indexes, common.GetRandomPositiveInt(tss.EC().Params().N))
+		indexes = append(indexes, common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N))
 	}
 	_, e := CheckIndexes(tss.EC(), indexes)
 	assert.NoError(t, e)
@@ -33,7 +34,7 @@ func TestCheckIndexesDup(t *testing.T) {
 func TestCheckIndexesZero(t *testing.T) {
 	indexes := make([]*big.Int, 0)
 	for i := 0; i < 1000; i++ {
-		indexes = append(indexes, common.GetRandomPositiveInt(tss.EC().Params().N))
+		indexes = append(indexes, common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N))
 	}
 	_, e := CheckIndexes(tss.EC(), indexes)
 	assert.NoError(t, e)
@@ -46,14 +47,14 @@ func TestCheckIndexesZero(t *testing.T) {
 func TestCreate(t *testing.T) {
 	num, threshold := 5, 3
 
-	secret := common.GetRandomPositiveInt(tss.EC().Params().N)
+	secret := common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N)
 
 	ids := make([]*big.Int, 0)
 	for i := 0; i < num; i++ {
-		ids = append(ids, common.GetRandomPositiveInt(tss.EC().Params().N))
+		ids = append(ids, common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N))
 	}
 
-	vs, _, err := Create(tss.EC(), threshold, secret, ids)
+	vs, _, err := Create(tss.EC(), threshold, secret, ids, rand.Reader)
 	assert.Nil(t, err)
 
 	assert.Equal(t, threshold+1, len(vs))
@@ -74,14 +75,14 @@ func TestCreate(t *testing.T) {
 func TestVerify(t *testing.T) {
 	num, threshold := 5, 3
 
-	secret := common.GetRandomPositiveInt(tss.EC().Params().N)
+	secret := common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N)
 
 	ids := make([]*big.Int, 0)
 	for i := 0; i < num; i++ {
-		ids = append(ids, common.GetRandomPositiveInt(tss.EC().Params().N))
+		ids = append(ids, common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N))
 	}
 
-	vs, shares, err := Create(tss.EC(), threshold, secret, ids)
+	vs, shares, err := Create(tss.EC(), threshold, secret, ids, rand.Reader)
 	assert.NoError(t, err)
 
 	for i := 0; i < num; i++ {
@@ -92,14 +93,14 @@ func TestVerify(t *testing.T) {
 func TestReconstruct(t *testing.T) {
 	num, threshold := 5, 3
 
-	secret := common.GetRandomPositiveInt(tss.EC().Params().N)
+	secret := common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N)
 
 	ids := make([]*big.Int, 0)
 	for i := 0; i < num; i++ {
-		ids = append(ids, common.GetRandomPositiveInt(tss.EC().Params().N))
+		ids = append(ids, common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N))
 	}
 
-	_, shares, err := Create(tss.EC(), threshold, secret, ids)
+	_, shares, err := Create(tss.EC(), threshold, secret, ids, rand.Reader)
 	assert.NoError(t, err)
 
 	secret2, err2 := shares[:threshold-1].ReConstruct(tss.EC())

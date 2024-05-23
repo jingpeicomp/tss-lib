@@ -10,10 +10,11 @@ import (
 	"crypto/elliptic"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 
-	"github.com/bnb-chain/tss-lib/common"
-	"github.com/bnb-chain/tss-lib/crypto/paillier"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	"github.com/bnb-chain/tss-lib/v2/crypto/paillier"
 )
 
 const (
@@ -32,7 +33,7 @@ type (
 )
 
 // ProveRangeAlice implements Alice's range proof used in the MtA and MtAwc protocols from GG18Spec (9) Fig. 9.
-func ProveRangeAlice(ec elliptic.Curve, pk *paillier.PublicKey, c, NTilde, h1, h2, m, r *big.Int) (*RangeProofAlice, error) {
+func ProveRangeAlice(ec elliptic.Curve, pk *paillier.PublicKey, c, NTilde, h1, h2, m, r *big.Int, rand io.Reader) (*RangeProofAlice, error) {
 	if pk == nil || NTilde == nil || h1 == nil || h2 == nil || c == nil || m == nil || r == nil {
 		return nil, errors.New("ProveRangeAlice constructor received nil value(s)")
 	}
@@ -44,15 +45,15 @@ func ProveRangeAlice(ec elliptic.Curve, pk *paillier.PublicKey, c, NTilde, h1, h
 	q3NTilde := new(big.Int).Mul(q3, NTilde)
 
 	// 1.
-	alpha := common.GetRandomPositiveInt(q3)
+	alpha := common.GetRandomPositiveInt(rand, q3)
 	// 2.
-	beta := common.GetRandomPositiveRelativelyPrimeInt(pk.N)
+	beta := common.GetRandomPositiveRelativelyPrimeInt(rand, pk.N)
 
 	// 3.
-	gamma := common.GetRandomPositiveInt(q3NTilde)
+	gamma := common.GetRandomPositiveInt(rand, q3NTilde)
 
 	// 4.
-	rho := common.GetRandomPositiveInt(qNTilde)
+	rho := common.GetRandomPositiveInt(rand, qNTilde)
 
 	// 5.
 	modNTilde := common.ModInt(NTilde)
@@ -112,6 +113,43 @@ func (pf *RangeProofAlice) Verify(ec elliptic.Curve, pk *paillier.PublicKey, NTi
 	q := ec.Params().N
 	q3 := new(big.Int).Mul(q, q)
 	q3 = new(big.Int).Mul(q, q3)
+
+	if !common.IsInInterval(pf.Z, NTilde) {
+		return false
+	}
+	if !common.IsInInterval(pf.U, pk.NSquare()) {
+		return false
+	}
+	if !common.IsInInterval(pf.W, NTilde) {
+		return false
+	}
+	if !common.IsInInterval(pf.S, pk.N) {
+		return false
+	}
+	if new(big.Int).GCD(nil, nil, pf.Z, NTilde).Cmp(one) != 0 {
+		return false
+	}
+	if new(big.Int).GCD(nil, nil, pf.U, pk.NSquare()).Cmp(one) != 0 {
+		return false
+	}
+	if new(big.Int).GCD(nil, nil, pf.W, NTilde).Cmp(one) != 0 {
+		return false
+	}
+	if pf.S1.Cmp(q) == -1 {
+		return false
+	}
+	if pf.S2.Cmp(q) == -1 {
+		return false
+	}
+	if pf.S.Cmp(one) == 0 {
+		return false
+	}
+	if pf.Z.Cmp(one) == 0 {
+		return false
+	}
+	if pf.S1.Cmp(pf.S2) == 0 {
+		return false
+	}
 
 	// 3.
 	if pf.S1.Cmp(q3) == 1 {

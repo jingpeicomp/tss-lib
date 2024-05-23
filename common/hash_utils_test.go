@@ -7,20 +7,21 @@
 package common_test
 
 import (
+	"crypto/rand"
 	"math/big"
 	"reflect"
 	"testing"
 
-	"github.com/bnb-chain/tss-lib/common"
+	"github.com/bnb-chain/tss-lib/v2/common"
 )
 
 func TestRejectionSample(t *testing.T) {
-	curveQ := common.GetRandomPrimeInt(256)
-	randomQ := common.MustGetRandomInt(64)
+	curveQ := common.GetRandomPrimeInt(rand.Reader, 256)
+	randomQ := common.MustGetRandomInt(rand.Reader, 64)
 	hash := common.SHA512_256iOne(big.NewInt(123))
 	rs1 := common.RejectionSample(curveQ, hash)
 	rs2 := common.RejectionSample(randomQ, hash)
-	rs3 := common.RejectionSample(common.MustGetRandomInt(64), hash)
+	rs3 := common.RejectionSample(common.MustGetRandomInt(rand.Reader, 64), hash)
 	type args struct {
 		q     *big.Int
 		eHash *big.Int

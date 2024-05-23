@@ -7,11 +7,12 @@
 package tss
 
 import (
+	"crypto/rand"
 	"fmt"
 	"math/big"
 	"sort"
 
-	"github.com/bnb-chain/tss-lib/common"
+	"github.com/bnb-chain/tss-lib/v2/common"
 )
 
 type (
@@ -80,7 +81,7 @@ func SortPartyIDs(ids UnSortedPartyIDs, startAt ...int) SortedPartyIDs {
 // GenerateTestPartyIDs generates a list of mock PartyIDs for tests
 func GenerateTestPartyIDs(count int, startAt ...int) SortedPartyIDs {
 	ids := make(UnSortedPartyIDs, 0, count)
-	key := common.MustGetRandomInt(256)
+	key := common.MustGetRandomInt(rand.Reader, 256)
 	frm := 0
 	i := 0 // default `i`
 	if len(startAt) > 0 {

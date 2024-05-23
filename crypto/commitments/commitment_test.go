@@ -7,19 +7,20 @@
 package commitments_test
 
 import (
+	"crypto/rand"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	. "github.com/bnb-chain/tss-lib/crypto/commitments"
+	. "github.com/bnb-chain/tss-lib/v2/crypto/commitments"
 )
 
 func TestCreateVerify(t *testing.T) {
 	one := big.NewInt(1)
 	zero := big.NewInt(0)
 
-	commitment := NewHashCommitment(zero, one)
+	commitment := NewHashCommitment(rand.Reader, zero, one)
 	pass := commitment.Verify()
 
 	assert.True(t, pass, "must pass")
@@ -29,7 +30,7 @@ func TestDeCommit(t *testing.T) {
 	one := big.NewInt(1)
 	zero := big.NewInt(0)
 
-	commitment := NewHashCommitment(zero, one)
+	commitment := NewHashCommitment(rand.Reader, zero, one)
 	pass, secrets := commitment.DeCommit()
 
 	assert.True(t, pass, "must pass")

@@ -8,13 +8,15 @@ package signing
 
 import (
 	"crypto/sha512"
+	"math/big"
 
 	"github.com/agl/ed25519/edwards25519"
+	"github.com/bnb-chain/tss-lib/v2/common"
 	"github.com/pkg/errors"
 
-	"github.com/bnb-chain/tss-lib/crypto"
-	"github.com/bnb-chain/tss-lib/crypto/commitments"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/crypto"
+	"github.com/bnb-chain/tss-lib/v2/crypto/commitments"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func (round *round3) Start() *tss.Error {
@@ -38,6 +40,7 @@ func (round *round3) Start() *tss.Error {
 			continue
 		}
 
+		ContextJ := common.AppendBigIntToBytesSlice(round.temp.ssid, big.NewInt(int64(j)))
 		msg := round.temp.signRound2Messages[j]
 		r2msg := msg.Content().(*SignRound2Message)
 		cmtDeCmt := commitments.HashCommitDecommit{C: round.temp.cjs[j], D: r2msg.UnmarshalDeCommitment()}
@@ -58,12 +61,12 @@ func (round *round3) Start() *tss.Error {
 		if err != nil {
 			return round.WrapError(errors.New("failed to unmarshal Rj proof"), Pj)
 		}
-		ok = proof.Verify(Rj)
+		ok = proof.Verify(ContextJ, Rj)
 		if !ok {
 			return round.WrapError(errors.New("failed to prove Rj"), Pj)
 		}
 
-		extendedRj := ecPointToExtendedElement(round.Params().EC(), Rj.X(), Rj.Y())
+		extendedRj := ecPointToExtendedElement(round.Params().EC(), Rj.X(), Rj.Y(), round.Rand())
 		R = addExtendedElements(R, extendedRj)
 	}
 
@@ -77,7 +80,13 @@ func (round *round3) Start() *tss.Error {
 	h.Reset()
 	h.Write(encodedR[:])
 	h.Write(encodedPubKey[:])
-	h.Write(round.temp.m.Bytes())
+	if round.temp.fullBytesLen == 0 {
+		h.Write(round.temp.m.Bytes())
+	} else {
+		var mBytes = make([]byte, round.temp.fullBytesLen)
+		round.temp.m.FillBytes(mBytes)
+		h.Write(mBytes)
+	}
 
 	var lambda [64]byte
 	h.Sum(lambda[:0])
@@ -101,16 +110,18 @@ func (round *round3) Start() *tss.Error {
 }
 
 func (round *round3) Update() (bool, *tss.Error) {
+	ret := true
 	for j, msg := range round.temp.signRound3Messages {
 		if round.ok[j] {
 			continue
 		}
 		if msg == nil || !round.CanAccept(msg) {
-			return false, nil
+			ret = false
+			continue
 		}
 		round.ok[j] = true
 	}
-	return true, nil
+	return ret, nil
 }
 
 func (round *round3) CanAccept(msg tss.ParsedMessage) bool {

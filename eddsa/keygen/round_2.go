@@ -8,11 +8,12 @@ package keygen
 
 import (
 	"errors"
+	"math/big"
 
 	errors2 "github.com/pkg/errors"
 
-	"github.com/bnb-chain/tss-lib/crypto/schnorr"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/crypto/schnorr"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func (round *round2) Start() *tss.Error {
@@ -45,7 +46,8 @@ func (round *round2) Start() *tss.Error {
 	}
 
 	// 5. compute Schnorr prove
-	pii, err := schnorr.NewZKProof(round.temp.ui, round.temp.vs[0])
+	ContextI := append(round.temp.ssid, new(big.Int).SetUint64(uint64(i)).Bytes()...)
+	pii, err := schnorr.NewZKProof(ContextI, round.temp.ui, round.temp.vs[0], round.Rand())
 	if err != nil {
 		return round.WrapError(errors2.Wrapf(err, "NewZKProof(ui, vi0)"))
 	}
@@ -70,20 +72,23 @@ func (round *round2) CanAccept(msg tss.ParsedMessage) bool {
 
 func (round *round2) Update() (bool, *tss.Error) {
 	// guard - VERIFY de-commit for all Pj
+	ret := true
 	for j, msg := range round.temp.kgRound2Message1s {
 		if round.ok[j] {
 			continue
 		}
 		if msg == nil || !round.CanAccept(msg) {
-			return false, nil
+			ret = false
+			continue
 		}
 		msg2 := round.temp.kgRound2Message2s[j]
 		if msg2 == nil || !round.CanAccept(msg2) {
-			return false, nil
+			ret = false
+			continue
 		}
 		round.ok[j] = true
 	}
-	return true, nil
+	return ret, nil
 }
 
 func (round *round2) NextRound() tss.Round {

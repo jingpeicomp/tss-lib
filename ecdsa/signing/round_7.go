@@ -12,10 +12,10 @@ import (
 
 	errors2 "github.com/pkg/errors"
 
-	"github.com/bnb-chain/tss-lib/common"
-	"github.com/bnb-chain/tss-lib/crypto"
-	"github.com/bnb-chain/tss-lib/crypto/commitments"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	"github.com/bnb-chain/tss-lib/v2/crypto"
+	"github.com/bnb-chain/tss-lib/v2/crypto/commitments"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func (round *round7) Start() *tss.Error {
@@ -32,6 +32,7 @@ func (round *round7) Start() *tss.Error {
 		if j == round.PartyID().Index {
 			continue
 		}
+		ContextJ := common.AppendBigIntToBytesSlice(round.temp.ssid, big.NewInt(int64(j)))
 		r5msg := round.temp.signRound5Messages[j].Content().(*SignRound5Message)
 		r6msg := round.temp.signRound6Messages[j].Content().(*SignRound6Message)
 		cj, dj := r5msg.UnmarshalCommitment(), r6msg.UnmarshalDeCommitment()
@@ -52,11 +53,11 @@ func (round *round7) Start() *tss.Error {
 		}
 		bigAjs[j] = bigAj
 		pijA, err := r6msg.UnmarshalZKProof(round.Params().EC())
-		if err != nil || !pijA.Verify(bigAj) {
+		if err != nil || !pijA.Verify(ContextJ, bigAj) {
 			return round.WrapError(errors.New("schnorr verify for Aj failed"), Pj)
 		}
 		pijV, err := r6msg.UnmarshalZKVProof(round.Params().EC())
-		if err != nil || !pijV.Verify(bigVj, round.temp.bigR) {
+		if err != nil || !pijV.Verify(ContextJ, bigVj, round.temp.bigR) {
 			return round.WrapError(errors.New("vverify for Vj failed"), Pj)
 		}
 	}
@@ -82,7 +83,7 @@ func (round *round7) Start() *tss.Error {
 	TiX, TiY := round.Params().EC().ScalarMult(AX, AY, round.temp.li.Bytes())
 	round.temp.Ui = crypto.NewECPointNoCurveCheck(round.Params().EC(), UiX, UiY)
 	round.temp.Ti = crypto.NewECPointNoCurveCheck(round.Params().EC(), TiX, TiY)
-	cmt := commitments.NewHashCommitment(UiX, UiY, TiX, TiY)
+	cmt := commitments.NewHashCommitment(round.Rand(), UiX, UiY, TiX, TiY)
 	r7msg := NewSignRound7Message(round.PartyID(), cmt.C)
 	round.temp.signRound7Messages[round.PartyID().Index] = r7msg
 	round.out <- r7msg
@@ -92,16 +93,18 @@ func (round *round7) Start() *tss.Error {
 }
 
 func (round *round7) Update() (bool, *tss.Error) {
+	ret := true
 	for j, msg := range round.temp.signRound7Messages {
 		if round.ok[j] {
 			continue
 		}
 		if msg == nil || !round.CanAccept(msg) {
-			return false, nil
+			ret = false
+			continue
 		}
 		round.ok[j] = true
 	}
-	return true, nil
+	return ret, nil
 }
 
 func (round *round7) CanAccept(msg tss.ParsedMessage) bool {

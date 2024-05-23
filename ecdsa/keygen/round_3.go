@@ -13,11 +13,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	errors2 "github.com/pkg/errors"
 
-	"github.com/bnb-chain/tss-lib/common"
-	"github.com/bnb-chain/tss-lib/crypto"
-	"github.com/bnb-chain/tss-lib/crypto/commitments"
-	"github.com/bnb-chain/tss-lib/crypto/vss"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	"github.com/bnb-chain/tss-lib/v2/crypto"
+	"github.com/bnb-chain/tss-lib/v2/crypto/commitments"
+	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
 func (round *round3) Start() *tss.Error {
@@ -65,6 +65,7 @@ func (round *round3) Start() *tss.Error {
 		if j == PIdx {
 			continue
 		}
+		ContextJ := common.AppendBigIntToBytesSlice(round.temp.ssid, big.NewInt(int64(j)))
 		// 6-8.
 		go func(j int, ch chan<- vssOut) {
 			// 4-9.
@@ -82,6 +83,21 @@ func (round *round3) Start() *tss.Error {
 				ch <- vssOut{err, nil}
 				return
 			}
+			modProof, err := r2msg2.UnmarshalModProof()
+			if err != nil && round.Parameters.NoProofMod() {
+				// For old parties, the modProof could be not exist
+				// Not return error for compatibility reason
+				common.Logger.Warningf("modProof not exist:%s", Ps[j])
+			} else {
+				if err != nil {
+					ch <- vssOut{errors.New("modProof verify failed"), nil}
+					return
+				}
+				if ok = modProof.Verify(ContextJ, round.save.PaillierPKs[j].N); !ok {
+					ch <- vssOut{errors.New("modProof verify failed"), nil}
+					return
+				}
+			}
 			r2msg1 := round.temp.kgRound2Message1s[j].Content().(*KGRound2Message1)
 			PjShare := vss.Share{
 				Threshold: round.Threshold(),
@@ -92,6 +108,23 @@ func (round *round3) Start() *tss.Error {
 				ch <- vssOut{errors.New("vss verify failed"), nil}
 				return
 			}
+			facProof, err := r2msg1.UnmarshalFacProof()
+			if err != nil && round.NoProofFac() {
+				// For old parties, the facProof could be not exist
+				// Not return error for compatibility reason
+				common.Logger.Warningf("facProof not exist:%s", Ps[j])
+			} else {
+				if err != nil {
+					ch <- vssOut{errors.New("facProof verify failed"), nil}
+					return
+				}
+				if ok = facProof.Verify(ContextJ, round.EC(), round.save.PaillierPKs[j].N, round.save.NTildei,
+					round.save.H1i, round.save.H2i); !ok {
+					ch <- vssOut{errors.New("facProof verify failed"), nil}
+					return
+				}
+			}
+
 			// (9) handled above
 			ch <- vssOut{nil, PjVs}
 		}(j, chs[j])
@@ -114,10 +147,9 @@ func (round *round3) Start() *tss.Error {
 		var multiErr error
 		if len(culprits) > 0 {
 			for _, vssResult := range vssResults {
-				if vssResult.unWrappedErr == nil {
-					continue
+				if vssResult.unWrappedErr != nil {
+					multiErr = multierror.Append(multiErr, vssResult.unWrappedErr)
 				}
-				multiErr = multierror.Append(multiErr, vssResult.unWrappedErr)
 			}
 			return round.WrapError(multiErr, culprits...)
 		}
@@ -196,17 +228,19 @@ func (round *round3) CanAccept(msg tss.ParsedMessage) bool {
 }
 
 func (round *round3) Update() (bool, *tss.Error) {
+	ret := true
 	for j, msg := range round.temp.kgRound3Messages {
 		if round.ok[j] {
 			continue
 		}
 		if msg == nil || !round.CanAccept(msg) {
-			return false, nil
+			ret = false
+			continue
 		}
 		// proof check is in round 4
 		round.ok[j] = true
 	}
-	return true, nil
+	return ret, nil
 }
 
 func (round *round3) NextRound() tss.Round {
