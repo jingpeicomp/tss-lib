@@ -31,6 +31,15 @@ func AliceInit(
 	return cA, pf, err
 }
 
+func AliceInitGg20(
+	ec elliptic.Curve,
+	pkA *paillier.PublicKey,
+	a, cA, rA, NTildeB, h1B, h2B *big.Int,
+	rand io.Reader,
+) (pf *RangeProofAlice, err error) {
+	return ProveRangeAlice(ec, pkA, cA, NTildeB, h1B, h2B, a, rA, rand)
+}
+
 func BobMid(
 	Session []byte,
 	ec elliptic.Curve,

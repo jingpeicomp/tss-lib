@@ -35,6 +35,9 @@ func (err *Error) Victim() *PartyID { return err.victim }
 
 func (err *Error) Culprits() []*PartyID { return err.culprits }
 
+func (err *Error) SelfCaused() bool {
+	return len(err.culprits) == 0 || (len(err.culprits) == 1 && err.culprits[0] == err.victim)
+}
 func (err *Error) Error() string {
 	if err == nil || err.cause == nil {
 		return "Error is nil"

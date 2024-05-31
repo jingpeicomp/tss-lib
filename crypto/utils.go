@@ -7,11 +7,21 @@
 package crypto
 
 import (
+	"crypto/elliptic"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
+	"sync"
+
+	"github.com/btcsuite/btcd/btcec/v2"
 
 	"github.com/bnb-chain/tss-lib/v2/common"
+)
+
+var (
+	basePoint2Cache = new(sync.Map)
 )
 
 func GenerateNTildei(rand io.Reader, safePrimes [2]*big.Int) (NTildei, h1i, h2i *big.Int, err error) {
@@ -25,4 +35,43 @@ func GenerateNTildei(rand io.Reader, safePrimes [2]*big.Int) (NTildei, h1i, h2i 
 	h1 := common.GetRandomGeneratorOfTheQuadraticResidue(rand, NTildei)
 	h2 := common.GetRandomGeneratorOfTheQuadraticResidue(rand, NTildei)
 	return NTildei, h1, h2, nil
+}
+
+// ECBasePoint2 returns a shared point of unknown discrete logarithm for the given curve, used only in GG20 ECDSA signing phase 3 (as h)
+// Mimics the KZen-networks/curv impl: https://git.io/JfwSa
+// Not so efficient due to 3x sha256 but it's only used once during a signing round.
+func ECBasePoint2(curve elliptic.Curve) (pt *ECPoint, err error) {
+	if curve == nil {
+		return nil, errors.New("ECBasePoint2() received a nil curve")
+	}
+	if pt, ok := basePoint2Cache.Load(curve); ok {
+		return pt.(*ECPoint), nil
+	}
+	minRounds := 3 // minimum to generate a curve point for secp256k1
+	params := curve.Params()
+	fieldValX := btcec.FieldVal{}
+	fieldValX.SetByteSlice(params.Gx.Bytes())
+	fieldValY := btcec.FieldVal{}
+	fieldValY.SetByteSlice(params.Gy.Bytes())
+	G := btcec.NewPublicKey(&fieldValX, &fieldValY)
+
+	// G := btcec.PublicKey{
+	// 	Curve: curve,
+	// 	X:     params.Gx,
+	// 	Y:     params.Gy,
+	// }
+	bz := G.SerializeCompressed()
+	for i := 0; i < minRounds || pt == nil; i++ {
+		if i >= 10 {
+			err = errors.New("ECBasePoint2() too many rounds (max: 10)")
+			return
+		}
+		sum := sha256.Sum256(bz)
+		bz = sum[:]
+		if i >= minRounds-1 {
+			pt, _ = DecompressPoint(curve, new(big.Int).SetBytes(bz), 0x2)
+		}
+	}
+	basePoint2Cache.Store(curve, pt)
+	return
 }

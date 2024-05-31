@@ -1,0 +1,98 @@
+// Copyright © 2019 Binance
+//
+// This file is part of Binance. The full Binance copyright notice, including
+// terms governing use, modification, and redistribution, is contained in the
+// file LICENSE at the root of the source code distribution tree.
+
+syntax = "proto3";
+package binance.tsslib.gg20.signing;
+option go_package = "gg20/signing";
+
+/*
+ * Represents a P2P message sent to each party during Phase 1 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound1Message1 {
+    bytes c = 1;
+    repeated bytes range_proof_alice = 2;
+}
+
+/*
+ * Represents a BROADCAST message sent to all parties during Phase 1 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound1Message2 {
+    bytes commitment = 1;
+}
+
+/*
+ * Represents a P2P message sent to each party during Phase 2 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound2Message {
+    bytes c1 = 1;
+    bytes c2 = 2;
+    repeated bytes proof_bob = 3;
+    repeated bytes proof_bob_wc = 4;
+}
+
+/*
+ * Represents a BROADCAST message sent to all parties during Phase 3 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound3Message {
+    bytes delta_i = 1;
+    bytes t_i_x = 2;
+    bytes t_i_y = 3;
+    bytes t_proof_alpha_x = 4;
+    bytes t_proof_alpha_y = 5;
+    bytes t_proof_t = 6;
+    bytes t_proof_u = 7;
+}
+
+/*
+ * Represents a BROADCAST message sent to all parties during Phase 4 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound4Message {
+    repeated bytes de_commitment = 1;
+}
+
+/*
+ * Represents a BROADCAST message sent to all parties during Phase 5 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound5Message {
+    bytes r_i_x = 1;
+    bytes r_i_y = 2;
+    repeated bytes proof_pdl_w_slack = 3;
+}
+
+/*
+ * Represents a BROADCAST message sent to all parties during Phase 6 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound6Message {
+    message SuccessData {
+        bytes s_i_x = 1;
+        bytes s_i_y = 2;
+        bytes st_proof_alpha_x = 3;
+        bytes st_proof_alpha_y = 4;
+        bytes st_proof_beta_x = 5;
+        bytes st_proof_beta_y = 6;
+        bytes st_proof_t = 7;
+        bytes st_proof_u = 8;
+    }
+    message AbortData {
+        bytes k_i = 1;
+        bytes k_i_randomness = 2;
+        bytes gamma_i = 3;
+        repeated bytes alpha_i_j = 4;
+        repeated bytes beta_j_i = 5;
+    }
+    oneof content {
+        SuccessData success = 1;
+        AbortData abort = 2;
+    }
+}
+
+/*
+ * Represents a BROADCAST message sent to all parties during Phase 7 of the GG20 ECDSA TSS signing protocol.
+ */
+message SignRound7Message {
+    bytes s_i = 1;
+}
+

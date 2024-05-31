@@ -126,6 +126,25 @@ func (publicKey *PublicKey) EncryptAndReturnRandomness(rand io.Reader, m *big.In
 	return
 }
 
+func (publicKey *PublicKey) EncryptWithChosenRandomness(m, rnd *big.Int) (c *big.Int, x *big.Int, err error) {
+	if rnd == nil || rnd.Cmp(zero) == 0 {
+		return nil, nil, errors.New("EncryptWithChosenRandomness() requires non-zero randomness")
+	}
+	if m.Cmp(zero) == -1 || m.Cmp(publicKey.N) != -1 { // m < 0 || m >= N ?
+		return nil, nil, ErrMessageTooLong
+	}
+	// https://docs.rs/paillier/0.2.0/src/paillier/core.rs.html#236
+	modNSq := common.ModInt(publicKey.NSquare())
+	x = modNSq.Exp(rnd, publicKey.N)
+	// 1. gamma^m mod N2
+	Gm := modNSq.Exp(publicKey.Gamma(), m)
+	// 2. x^N mod N2
+	xN := modNSq.Exp(x, publicKey.N)
+	// 3. (1) * (2) mod N2
+	c = modNSq.Mul(Gm, xN)
+	return
+}
+
 func (publicKey *PublicKey) Encrypt(rand io.Reader, m *big.Int) (c *big.Int, err error) {
 	c, _, err = publicKey.EncryptAndReturnRandomness(rand, m)
 	return
@@ -187,6 +206,23 @@ func (privateKey *PrivateKey) Decrypt(c *big.Int) (m *big.Int, err error) {
 	// 3. (1) * modInv(2) mod N
 	inv := new(big.Int).ModInverse(Lg, privateKey.N)
 	m = common.ModInt(privateKey.N).Mul(Lc, inv)
+	return
+}
+
+func (sk *PrivateKey) DecryptAndRecoverRandomness(c *big.Int) (m, x *big.Int, err error) {
+	if m, err = sk.Decrypt(c); err != nil {
+		return
+	}
+	modN := common.ModInt(sk.N)
+	modNSq := common.ModInt(sk.NSquare())
+	modPhiN := common.ModInt(sk.PhiN)
+	// CDash = C * (1 - m*N) mod N2  (this is scalar subtraction)
+	mN := modNSq.Mul(m, sk.N)
+	cDash := modNSq.Mul(c, new(big.Int).Sub(one, mN))
+	// M = N^-1 mod phi(N)
+	M := modPhiN.Inverse(sk.N)
+	// x = CDash^M mod N
+	x = modN.Exp(cDash, M)
 	return
 }
 

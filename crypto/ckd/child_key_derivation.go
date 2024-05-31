@@ -30,7 +30,7 @@ type ExtendedKey struct {
 	Version    []byte
 }
 
-// For more information about child key derivation see https://github.com/binance-chain/tss-lib/issues/104
+// For more information about child key derivation see https://github.com/bnb-chain/tss-lib/v2/issues/104
 // https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki .
 // The functions below do not implement the full BIP-32 specification. As mentioned in the Jira ticket above,
 // we only use non-hardened derived keys.
