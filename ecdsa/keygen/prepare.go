@@ -34,16 +34,27 @@ const (
 // This can be a time consuming process so it is recommended to do it out-of-band.
 // If not specified, a concurrency value equal to the number of available CPU cores will be used.
 // If pre-parameters could not be generated before the timeout, an error is returned.
-func GeneratePreParams(timeout time.Duration, optionalConcurrency ...int) (*LocalPreParams, error) {
+func GenerateOptionPreParams(timeout time.Duration, isSafe bool, optionalConcurrency ...int) (*LocalPreParams, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return GeneratePreParamsWithContext(ctx, optionalConcurrency...)
+	return GeneratePreParamsWithContext(ctx, isSafe, optionalConcurrency...)
+}
+
+// GeneratePreParams finds two safe primes and computes the Paillier secret required for the protocol.
+// This can be a time consuming process so it is recommended to do it out-of-band.
+// If not specified, a concurrency value equal to the number of available CPU cores will be used.
+// If pre-parameters could not be generated before the timeout, an error is returned.
+func GeneratePreParams(timeout time.Duration, optionalConcurrency ...int) (*LocalPreParams, error) {
+	return GenerateOptionPreParams(timeout, true, optionalConcurrency...)
 }
 
 // GeneratePreParams finds two safe primes and computes the Paillier secret required for the protocol.
 // This can be a time consuming process so it is recommended to do it out-of-band.
 // If not specified, a concurrency value equal to the number of available CPU cores will be used.
 // If pre-parameters could not be generated before the context is done, an error is returned.
+<<<<<<< HEAD
+func GeneratePreParamsWithContext(ctx context.Context, isSafe bool, optionalConcurrency ...int) (*LocalPreParams, error) {
+=======
 func GeneratePreParamsWithContext(ctx context.Context, optionalConcurrency ...int) (*LocalPreParams, error) {
 	return GeneratePreParamsWithContextAndRandom(ctx, rand.Reader, optionalConcurrency...)
 }
@@ -53,6 +64,7 @@ func GeneratePreParamsWithContext(ctx context.Context, optionalConcurrency ...in
 // If not specified, a concurrency value equal to the number of available CPU cores will be used.
 // If pre-parameters could not be generated before the context is done, an error is returned.
 func GeneratePreParamsWithContextAndRandom(ctx context.Context, rand io.Reader, optionalConcurrency ...int) (*LocalPreParams, error) {
+>>>>>>> 5d01446c77c7ef4e20189c59a4d0f9db2c71a4e9
 	var concurrency int
 	if 0 < len(optionalConcurrency) {
 		if 1 < len(optionalConcurrency) {
@@ -75,7 +87,18 @@ func GeneratePreParamsWithContextAndRandom(ctx context.Context, rand io.Reader, 
 		common.Logger.Info("generating the Paillier modulus, please wait...")
 		start := time.Now()
 		// more concurrency weight is assigned here because the paillier primes have a requirement of having "large" P-Q
+<<<<<<< HEAD
+		var PiPaillierSk *paillier.PrivateKey
+		var err error
+		if isSafe {
+			PiPaillierSk, _, err = paillier.GenerateKeyPair(ctx, paillierModulusLen, concurrency*2)
+		} else {
+			PiPaillierSk, _, err = paillier.GenerateUnsafeKeyPair(ctx, paillierModulusLen, concurrency*2)
+		}
+
+=======
 		PiPaillierSk, _, err := paillier.GenerateKeyPair(ctx, rand, paillierModulusLen, concurrency*2)
+>>>>>>> 5d01446c77c7ef4e20189c59a4d0f9db2c71a4e9
 		if err != nil {
 			ch <- nil
 			return
@@ -87,9 +110,19 @@ func GeneratePreParamsWithContextAndRandom(ctx context.Context, rand io.Reader, 
 	// 5-7. generate safe primes for ZKPs used later on
 	go func(ch chan<- []*common.GermainSafePrime) {
 		var err error
+		var sgps []*common.GermainSafePrime
 		common.Logger.Info("generating the safe primes for the signing proofs, please wait...")
 		start := time.Now()
+<<<<<<< HEAD
+		if isSafe {
+			sgps, err = common.GetRandomSafePrimesConcurrent(ctx, safePrimeBitLen, 2, concurrency)
+		} else {
+			sgps, err = common.GetRandomSafePrimesConcurrent(ctx, safePrimeBitLen, 2, concurrency)
+		}
+
+=======
 		sgps, err := common.GetRandomSafePrimesConcurrent(ctx, safePrimeBitLen, 2, concurrency, rand)
+>>>>>>> 5d01446c77c7ef4e20189c59a4d0f9db2c71a4e9
 		if err != nil {
 			ch <- nil
 			return
