@@ -10,10 +10,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/gob"
-	"github.com/bnb-chain/tss-lib/crypto/vss"
-	"github.com/bnb-chain/tss-lib/ecdsa/keygen"
-	"github.com/bnb-chain/tss-lib/ecdsa/resharing"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v2/ecdsa/keygen"
+	"github.com/bnb-chain/tss-lib/v2/ecdsa/resharing"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 	"log"
 	"math/big"
 	"os"
@@ -34,7 +34,7 @@ func main3() {
 	bothCommitteesPax := len(oldPartyIDs) + len(newPartyIDs)
 
 	outCh := make(chan tss.Message, bothCommitteesPax)
-	endCh := make(chan keygen.LocalPartySaveData, bothCommitteesPax)
+	endCh := make(chan *keygen.LocalPartySaveData, bothCommitteesPax)
 	for j, pID := range oldPartyIDs {
 		key := loadKeyReset(j)
 		params := tss.NewReSharingParameters(tss.S256(), oldP2PCtx, newP2PCtx, pID, 3, 2, 3, 2)
@@ -93,7 +93,7 @@ resetting:
 				if err != nil {
 					log.Println("should not be an error getting a party's index from save data", err)
 				}
-				saveDataArray[index] = saveData
+				saveDataArray[index] = *saveData
 			} else {
 				endedOldCommittee++
 			}

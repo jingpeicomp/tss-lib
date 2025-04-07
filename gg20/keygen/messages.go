@@ -138,6 +138,10 @@ func (m *KGRound2Message1) UnmarshalShare() *big.Int {
 	return new(big.Int).SetBytes(m.Share)
 }
 
+func (m *KGRound2Message1) UnmarshalFacProof() (*facproof.ProofFac, error) {
+	return facproof.NewProofFromBytes(m.GetFacProof())
+}
+
 func NewKGRound2Message2(
 	from *tss.PartyID,
 	deCommitment cmt.HashDeCommitment,

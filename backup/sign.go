@@ -10,10 +10,10 @@ import (
 	"C"
 	"encoding/gob"
 	"encoding/hex"
-	"github.com/bnb-chain/tss-lib/common"
-	"github.com/bnb-chain/tss-lib/ecdsa/keygen"
-	"github.com/bnb-chain/tss-lib/ecdsa/signing"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/common"
+	"github.com/bnb-chain/tss-lib/v2/ecdsa/keygen"
+	"github.com/bnb-chain/tss-lib/v2/ecdsa/signing"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 	"log"
 	"math/big"
 	"os"
@@ -24,14 +24,13 @@ import (
 //export Sign
 func main() {
 	outCh := make(chan tss.Message)
-	endCh := make(chan common.SignatureData)
+	endCh := make(chan *common.SignatureData)
 	msgDigest := []byte("Hello web3 world!")
 	party0 := loadParty(msgDigest, 0, outCh, endCh)
 	party1 := loadParty(msgDigest, 1, outCh, endCh)
 	party2 := loadParty(msgDigest, 2, outCh, endCh)
 	parties := [3]tss.Party{party0, party1, party2}
 	startParty1(parties)
-	var signData common.SignatureData
 signing:
 	for {
 		log.Printf("ACTIVE GOROUTINES: %d\n", runtime.NumGoroutine())
@@ -62,21 +61,21 @@ signing:
 	}
 }
 
-func loadParty(digest []byte, index int, outCh chan tss.Message, endCh chan common.SignatureData) tss.Party {
+func loadParty(digest []byte, index int, outCh chan tss.Message, endCh chan *common.SignatureData) tss.Party {
 	parties := tss.SortPartyIDs(tss.UnSortedPartyIDs{tss.NewPartyID("1", " ", big.NewInt(10)), tss.NewPartyID("2", " ", big.NewInt(20)), tss.NewPartyID("3", " ", big.NewInt(30))})
 	thisParty := parties[index]
 	ctx := tss.NewPeerContext(parties)
 	curve := tss.S256()
 	params := tss.NewParameters(curve, ctx, thisParty, len(parties), 2)
 
-	key := loadKey(index)
+	key := loadKey1(index)
 	msg := &big.Int{}
 	msg.SetBytes(digest)
 	party := signing.NewLocalParty(msg, params, key, outCh, endCh)
 	return party
 }
 
-func loadKey(index int) keygen.LocalPartySaveData {
+func loadKey1(index int) keygen.LocalPartySaveData {
 	var key keygen.LocalPartySaveData
 	file, err := os.Open("/Users/liuzhaoming/百度云同步盘/mac同步/project/valor/web3/mpc/tss-lib/data/key" + strconv.Itoa(index+1))
 	if err != nil {

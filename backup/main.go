@@ -14,9 +14,9 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
-	"github.com/bnb-chain/tss-lib/crypto/vss"
-	"github.com/bnb-chain/tss-lib/ecdsa/keygen"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v2/ecdsa/keygen"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 	"github.com/ipfs/go-log"
 	"os"
 	"time"
@@ -26,7 +26,7 @@ func main1() {
 	var level, _ = log.LevelFromString("debug")
 	log.SetAllLoggers(level)
 	log.SetupLogging()
-	keygen.GeneratePreParams(3 * time.Minute, true)
+	keygen.GeneratePreParams(3 * time.Minute)
 
 	data0 := loadKey("/Users/liuzhaoming/百度云同步盘/mac同步/project/study/java_call_go/java_call_go/src/main/data/session-1686363168946_1.key")
 	data1 := loadKey("/Users/liuzhaoming/百度云同步盘/mac同步/project/study/java_call_go/java_call_go/src/main/data/session-1686363168946_2.key")

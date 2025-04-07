@@ -13,9 +13,9 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"encoding/hex"
-	"github.com/bnb-chain/tss-lib/crypto/vss"
-	"github.com/bnb-chain/tss-lib/ecdsa/keygen"
-	"github.com/bnb-chain/tss-lib/tss"
+	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v2/ecdsa/keygen"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 	"io"
 	"log"
 	"math/big"
@@ -136,7 +136,7 @@ NextDelta:
 
 func main() {
 	outChs := [3]chan tss.Message{make(chan tss.Message), make(chan tss.Message), make(chan tss.Message)}
-	endChs := [3]chan keygen.LocalPartySaveData{make(chan keygen.LocalPartySaveData), make(chan keygen.LocalPartySaveData), make(chan keygen.LocalPartySaveData)}
+	endChs := [3]chan *keygen.LocalPartySaveData{make(chan *keygen.LocalPartySaveData), make(chan *keygen.LocalPartySaveData), make(chan *keygen.LocalPartySaveData)}
 
 	party0 := buildParty(0, outChs, endChs, false)
 	party1 := buildParty(1, outChs, endChs, true)
@@ -186,9 +186,9 @@ func main() {
 	data0, data1, data2 := <-endChs[0], <-endChs[1], <-endChs[2]
 	wg.Wait()
 	log.Println("=========> Key generate finish")
-	saveKey(data0, data1, data2)
+	saveKey(*data0, *data1, *data2)
 
-	privateKey, _ := reconstruct1(2, tss.S256(), [3]keygen.LocalPartySaveData{data0, data1, data2})
+	privateKey, _ := reconstruct1(2, tss.S256(), [3]keygen.LocalPartySaveData{*data0, *data1, *data2})
 	log.Println("reconstruct finish", privateKey)
 	log.Println(privateKey.PublicKey)
 	log.Println(hex.EncodeToString(privateKey.D.Bytes()))
@@ -196,8 +196,8 @@ func main() {
 	time.Sleep(time.Minute)
 }
 
-func buildParty(index int, outChs [3]chan tss.Message, endChs [3]chan keygen.LocalPartySaveData, isSafe bool) tss.Party {
-	preParams, _ := keygen.GenerateOptionPreParams(3*time.Minute, isSafe)
+func buildParty(index int, outChs [3]chan tss.Message, endChs [3]chan *keygen.LocalPartySaveData, isSafe bool) tss.Party {
+	preParams, _ := keygen.GeneratePreParams(time.Minute * 3)
 	parties := tss.SortPartyIDs(tss.UnSortedPartyIDs{tss.NewPartyID("1", " ", big.NewInt(1)), tss.NewPartyID("2", " ", big.NewInt(2)), tss.NewPartyID("3", " ", big.NewInt(3))})
 	thisParty := parties[index]
 	ctx := tss.NewPeerContext(parties)
